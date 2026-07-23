@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Icon\app-icon.ico</ApplicationIcon>
+    <Title>WinPods</Title>
+    <Authors>JamesCJ</Authors>
+    <Copyright>JamesCJ 2026</Copyright>
+    <PackageIcon>app-icon.png</PackageIcon>
+    <Description>WPF application built to allow more customisation of AirPods in Windows</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="Vanara.PInvoke.CoreAudio" Version="4.2.1" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Products\*.png" />
+    <Resource Include="Assets\Icon\app-icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\Icon\app-icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

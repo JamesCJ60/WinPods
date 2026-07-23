@@ -1,0 +1,100 @@
+<Window x:Class="WinPods.TraySummaryWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="WinPods summary"
+                 Icon="/Assets/Icon/app-icon.ico"
+                 Width="430"
+                 Height="126"
+                 MinWidth="430"
+                 MaxWidth="430"
+                 MinHeight="126"
+                 MaxHeight="126"
+                 ResizeMode="NoResize"
+                 WindowStyle="None"
+                 AllowsTransparency="True"
+                 Background="Transparent"
+                 ShowInTaskbar="False"
+                 ShowActivated="False"
+                 Topmost="True"
+                 WindowStartupLocation="Manual">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Window.Resources>
+
+    <Border Background="#FF28282C" BorderBrush="#4A4A50" BorderThickness="1" CornerRadius="8"
+            TextElement.Foreground="#F7F7F8"
+            MouseLeftButtonUp="SummaryCard_Click" Cursor="Hand">
+        <Grid Margin="14,11">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="112" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="22" />
+            </Grid.ColumnDefinitions>
+
+            <Border Width="108" Height="96">
+                <Border.Background>
+                    <ImageBrush ImageSource="{Binding SummaryDevice.ProductImagePath}"
+                                Viewbox="{Binding SummaryDevice.ProductImageViewbox}"
+                                ViewboxUnits="RelativeToBoundingBox" Stretch="Uniform"
+                                RenderOptions.BitmapScalingMode="HighQuality" />
+                </Border.Background>
+            </Border>
+
+            <StackPanel Grid.Column="1" Margin="14,0,7,0" VerticalAlignment="Center">
+                <TextBlock Text="{Binding SummaryDevice.Name}" FontSize="18" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding SummaryDevice.DetailBatteryLabel}" Margin="0,7,0,0" FontSize="12"
+                           TextWrapping="Wrap" MaxHeight="32" />
+                <TextBlock Text="{Binding SummaryDevice.NearbyStatusLabel}" Margin="0,4,0,0" FontSize="11"
+                           Foreground="{StaticResource WinPodsGreenBrush}" />
+            </StackPanel>
+
+            <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="Segoe Fluent Icons" FontSize="15"
+                       Foreground="#C8C8CE" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+            <Grid Grid.ColumnSpan="3" Background="#FF28282C"
+                  Visibility="{Binding ShowNoDevicesSummary, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="&#xE702;" FontFamily="Segoe Fluent Icons" FontSize="24" Foreground="#48B9F2" />
+                    <StackPanel Margin="14,0,0,0">
+                        <TextBlock Text="No AirPods found" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="Click to open WinPods" Margin="0,3,0,0" FontSize="11" Foreground="#A7A7AE" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.ColumnSpan="3" Background="#FF28282C"
+                  Visibility="{Binding ShowPairingSummary, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="112" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Width="108" Height="96">
+                    <Border.Background>
+                        <ImageBrush ImageSource="{Binding PairingDevice.ProductImagePath}"
+                                    Viewbox="{Binding PairingDevice.ProductImageViewbox}"
+                                    ViewboxUnits="RelativeToBoundingBox" Stretch="Uniform"
+                                    RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border.Background>
+                </Border>
+
+                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PairingDevice.Name}" FontSize="18" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="AirPods ready to pair" Margin="0,4,0,8" FontSize="11"
+                               Foreground="{StaticResource WinPodsGreenBrush}" />
+                    <StackPanel Orientation="Horizontal">
+                        <ui:Button Content="Pair" Appearance="Primary" Padding="16,5"
+                                   IsEnabled="{Binding CanPairNearbyDevice}"
+                                   Click="PairNearby_Click" />
+                        <ui:Button Content="Dismiss" Appearance="Secondary" Padding="14,5" Margin="8,0,0,0"
+                                   IsEnabled="{Binding CanPairNearbyDevice}"
+                                   Click="DismissNearby_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

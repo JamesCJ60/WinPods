@@ -1,0 +1,234 @@
+<ui:FluentWindow x:Class="WinPods.MainWindow"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:controls="clr-namespace:WinPods.Controls"
+                 Title="WinPods"
+                 Icon="/Assets/Icon/app-icon.ico"
+                 Width="480"
+                 Height="640"
+                 MinWidth="480"
+                 MinHeight="640"
+                 MaxWidth="480"
+                 MaxHeight="640"
+                 ResizeMode="NoResize"
+                 WindowStyle="None"
+                 ShowInTaskbar="False"
+                 ShowActivated="True"
+                 Topmost="True"
+                 WindowStartupLocation="Manual"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica">
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="EqChoiceStyle" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Choice" Height="42" Padding="14,0" Background="#29292D" BorderBrush="#414147" BorderThickness="1" CornerRadius="8">
+                            <Grid>
+                                <ContentPresenter VerticalAlignment="Center" />
+                                <TextBlock x:Name="Check" Text="&#xE73E;" FontFamily="Segoe Fluent Icons" FontSize="17"
+                                           Foreground="#48B9F2" HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Choice" Property="Background" Value="#34343A" />
+                                <Setter TargetName="Choice" Property="BorderBrush" Value="#48B9F2" />
+                                <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Choice" Property="Background" Value="#39393F" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionHeadingStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid Background="Transparent">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="22,20,22,24">
+                <ui:Card Padding="18" Background="#27272B">
+                    <Grid Height="112">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="132" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="126" Height="100">
+                            <Border.Background>
+                                <ImageBrush ImageSource="{Binding SelectedDevice.ProductImagePath}"
+                                            Viewbox="{Binding SelectedDevice.ProductImageViewbox}"
+                                            ViewboxUnits="RelativeToBoundingBox" Stretch="Uniform"
+                                            RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Border.Background>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="20,0,0,0" VerticalAlignment="Center">
+                            <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                                      FontSize="20" FontWeight="DemiBold"
+                                      Background="Transparent" BorderThickness="0" Padding="0,3"
+                                      HorizontalContentAlignment="Stretch"
+                                      ToolTip="{Binding SelectedDevice.Name}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" MaxWidth="255" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="{Binding SelectedDevice.Model}" Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding SelectedDevice.DetailBatteryLabel}" Margin="0,8,0,0" FontSize="13" TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Ellipse Width="6" Height="6" Fill="{StaticResource WinPodsGreenBrush}"
+                                         VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SelectedDevice.NearbyStatusLabel}"
+                                           Margin="7,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{StaticResource WinPodsGreenBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </ui:Card>
+
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Connection" Style="{StaticResource SectionHeadingStyle}" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon ArrowSync20}"
+                                   Padding="9" Margin="0,0,8,0" ToolTip="Refresh" Click="Refresh_Click" />
+                        <ui:Button Content="Pair / switch" Appearance="Secondary" Padding="13,7" IsEnabled="{Binding CanPairOrSwitch}" Click="PairSwitch_Click" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Margin="0,8,0,0" Padding="14,4" Background="#252529" BorderBrush="#3F3F44" BorderThickness="1" CornerRadius="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="54" />
+                            <RowDefinition Height="1" />
+                            <RowDefinition Height="54" />
+                        </Grid.RowDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Automatically switch to this PC" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Connect when worn while PC media is playing." Margin="0,3,12,0" FontSize="11"
+                                       Foreground="{StaticResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                         IsChecked="{Binding AutoSwitchEnabled, Mode=TwoWay}" />
+
+                        <Border Grid.Row="1" Grid.ColumnSpan="2" Background="#3F3F44" />
+
+                        <StackPanel Grid.Row="2" VerticalAlignment="Center">
+                            <TextBlock Text="Bluetooth telephony" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Use the AirPods microphone for calls. Changes cause a reconnect." Margin="0,3,12,0"
+                                       FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"
+                                         IsEnabled="{Binding CanToggleBluetoothTelephony}"
+                                         IsChecked="{Binding BluetoothTelephonyEnabled, Mode=TwoWay}" />
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="Playback" Margin="0,18,0,7" Style="{StaticResource SectionHeadingStyle}" />
+                <Border Padding="14,4" Background="#252529" BorderBrush="#3F3F44" BorderThickness="1" CornerRadius="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="54" />
+                            <RowDefinition Height="1" />
+                            <RowDefinition Height="54" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Automatic pause and resume" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Pause when removed and resume the same media." Margin="0,3,12,0" FontSize="11"
+                                       Foreground="{StaticResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                         IsChecked="{Binding AutoPauseEnabled, Mode=TwoWay}" />
+
+                        <Border Grid.Row="1" Grid.ColumnSpan="2" Background="#3F3F44" />
+
+                        <StackPanel Grid.Row="2" VerticalAlignment="Center">
+                            <TextBlock Text="Play with one AirPod" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Keep playing until both earbuds are removed." Margin="0,3,12,0" FontSize="11"
+                                       Foreground="{StaticResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"
+                                         IsEnabled="{Binding CanUseOneAirPodPlayback}"
+                                         IsChecked="{Binding OneAirPodPlaybackEnabled, Mode=TwoWay}" />
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="Equaliser" Margin="0,18,0,7" Style="{StaticResource SectionHeadingStyle}" />
+                <Border Padding="14" Background="#252529" BorderBrush="#3F3F44" BorderThickness="1" CornerRadius="12">
+                    <StackPanel>
+                        <UniformGrid Columns="2">
+                            <RadioButton Content="Recommended" Margin="0,0,5,0" GroupName="EqualiserMode" Style="{StaticResource EqChoiceStyle}"
+                                         IsChecked="{Binding IsRecommendedEqualiser, Mode=OneWay}" Click="RecommendedEq_Click" Foreground="{StaticResource SecondaryTextBrush}"/>
+                            <RadioButton Content="Custom" Margin="5,0,0,0" GroupName="EqualiserMode" Style="{StaticResource EqChoiceStyle}"
+                                         IsChecked="{Binding IsCustomEqualiser, Mode=OneWay}" Click="CustomEq_Click" Foreground="{StaticResource SecondaryTextBrush}"/>
+                        </UniformGrid>
+                        <controls:ThreeBandEqualiserControl Height="205" Margin="2,12,2,0"
+                                                           LowGain="{Binding LowGain, Mode=TwoWay}"
+                                                           MidGain="{Binding MidGain, Mode=TwoWay}"
+                                                           HighGain="{Binding HighGain, Mode=TwoWay}"
+                                                           Spectrum="{Binding Spectrum}"
+                                                           EditCompleted="Equaliser_EditCompleted" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="General" Margin="0,18,0,7" Style="{StaticResource SectionHeadingStyle}" />
+                <Border Padding="14,4" Background="#252529" BorderBrush="#3F3F44" BorderThickness="1" CornerRadius="12">
+                    <Grid Height="54">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Start WinPods with Windows" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Launch for every sign-in, regardless of paired AirPods." Margin="0,3,12,0"
+                                       FontSize="11" Foreground="{StaticResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                         IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Background="#E61D1D20" Visibility="{Binding HasNoDevices, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="330">
+                <TextBlock Text="&#xE702;" FontFamily="Segoe Fluent Icons" FontSize="42" HorizontalAlignment="Center" Foreground="#48B9F2" />
+                <TextBlock Text="No AirPods found" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,5" />
+                <TextBlock Text="Put the AirPods in pairing mode. WinPods will show a nearby Pair card automatically."
+                           TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource SecondaryTextBrush}" />
+                <ui:Button Content="Open pairing" Appearance="Primary" HorizontalAlignment="Center" Margin="0,16,0,0" Padding="16,8" Click="OpenPairing_Click" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                    <TextBlock Text="Start WinPods with Windows" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <ui:ToggleSwitch VerticalAlignment="Center"
+                                     IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>
