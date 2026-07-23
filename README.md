@@ -30,7 +30,10 @@ If you come across any issues or errors with WinPods, please open an issue or pi
 - Once downloaded, extract the zip folder
 - Once extrated, the application should now be installed
 - Finally, find `WinPods.exe`, and open it 
-- WinPods should now open, have fun!!!!
+- WinPods should now open as a tray icon, have fun!!!!
+
+Tray icon for reference: <img width="27" height="27" alt="image" src="https://github.com/user-attachments/assets/17356511-384b-45b1-b966-5d70c311cc95" />
+
 
 ## Build and run
 
@@ -49,4 +52,14 @@ dotnet run --project WinPods\WinPods.csproj
 - [NAudio (GitHub)](https://github.com/naudio/NAudio)  
 - [WPF UI (GitHub)](https://github.com/lepoco/wpfui)
 - [LibrePods (GitHub)](https://github.com/kavishdevar/librepods)  
-- [Vanara (GitHub)](https://github.com/dahall/Vanara)  
+- [Vanara (GitHub)](https://github.com/dahall/Vanara)
+
+## User Interface Examples
+### Status Messages:
+<img width="463" height="157" alt="image" src="https://github.com/user-attachments/assets/3436cab3-386c-4cf0-8e82-8e38de0a7dc4" />
+<img width="462" height="154" alt="image" src="https://github.com/user-attachments/assets/78243d4f-20a8-4304-8857-a31234abcb6c" />
+<img width="449" height="143" alt="image" src="https://github.com/user-attachments/assets/abf47448-83ae-4995-8297-d79b547f8c43" />
+
+### Main Menu:
+<img width="521" height="659" alt="image" src="https://github.com/user-attachments/assets/3a269de1-9e6f-4810-a048-6d243ad0256a" />
+<img width="526" height="664" alt="image" src="https://github.com/user-attachments/assets/3883dcdf-282a-4799-b826-afd4e3d24b4f" />
