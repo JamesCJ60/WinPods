@@ -4,7 +4,7 @@
 [![Total Downloads](https://img.shields.io/github/downloads/JamesCJ60/WinPods/total?style=flat-square&color=orange&label=Download%20Total)](https://github.com/JamesCJ60/Universal-x86-Tuning-Utility/releases/latest)
 [![discord](https://img.shields.io/discord/772105072720871435?color=orange&label=Discord&logo=discord&logoColor=white&style=flat-square)](https://discord.gg/9FeYVcbbUQ)
 
-<img width="2494" height="555" alt="WinPods GitHub repo banner" src="https://github.com/user-attachments/assets/9ab553b2-8cc7-4291-9fc5-c8a3d481c749" />
+<img width="2494" height="555" alt="GitHub Repo Banner Image" src="https://github.com/user-attachments/assets/00fa7888-9ccc-4086-9c5c-013129041bd9" />
 
 This project is still very much a WORK IN PROGRESS!
 
