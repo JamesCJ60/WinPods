@@ -1,14 +1,14 @@
 # WinPods
 
-[![Download Latest](https://img.shields.io/github/downloads/JamesCJ60/WinPods/total?style=flat-square&color=orange&label=Download%20Latest)](https://github.com/JamesCJ60/Universal-x86-Tuning-Utility/releases/latest)
-[![Total Downloads](https://img.shields.io/github/downloads/JamesCJ60/WinPods/total?style=flat-square&color=orange&label=Download%20Total)](https://github.com/JamesCJ60/Universal-x86-Tuning-Utility/releases/latest)
+[![Download Latest](https://img.shields.io/github/downloads/JamesCJ60/WinPods/total?style=flat-square&color=orange&label=Download%20Latest)](https://github.com/JamesCJ60/WinPods/releases/latest)
+[![Total Downloads](https://img.shields.io/github/downloads/JamesCJ60/WinPods/total?style=flat-square&color=orange&label=Download%20Total)](https://github.com/JamesCJ60/WinPods/releases/latest)
 [![discord](https://img.shields.io/discord/772105072720871435?color=orange&label=Discord&logo=discord&logoColor=white&style=flat-square)](https://discord.gg/9FeYVcbbUQ)
 
 <img width="2494" height="555" alt="GitHub Repo Banner Image" src="https://github.com/user-attachments/assets/00fa7888-9ccc-4086-9c5c-013129041bd9" />
 
 This project is still very much a WORK IN PROGRESS!
 
-PLEASE READ THIS: THE SOFTWARE IS PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. MISUSE OF THIS SOFTWARE COULD CAUSE SYSTEM INSTABILITY OR MALFUNCTION.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
 
 If you come across any issues or errors with WinPods, please open an issue or ping `@jamescj` in our [discord community server](https://discord.gg/9FeYVcbbUQ). 
 
