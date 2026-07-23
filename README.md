@@ -4,7 +4,7 @@
 [![Total Downloads](https://img.shields.io/github/downloads/JamesCJ60/WinPods/total?style=flat-square&color=orange&label=Download%20Total)](https://github.com/JamesCJ60/Universal-x86-Tuning-Utility/releases/latest)
 [![discord](https://img.shields.io/discord/772105072720871435?color=orange&label=Discord&logo=discord&logoColor=white&style=flat-square)](https://discord.gg/9FeYVcbbUQ)
 
-<img width="2494" height="555" alt="Repo banner" src="https://github.com/user-attachments/assets/9ab553b2-8cc7-4291-9fc5-c8a3d481c749" />
+<img width="2494" height="555" alt="WinPods GitHub repo banner" src="https://github.com/user-attachments/assets/9ab553b2-8cc7-4291-9fc5-c8a3d481c749" />
 
 This project is still very much a WORK IN PROGRESS!
 
@@ -15,7 +15,7 @@ If you come across any issues or errors with WinPods, please open an issue or pi
 ## What is WinPods?
 - It's a lightweight utility that brings the native AirPods experience to Windows, just like you'd normally only get on a Mac or iPhone.
 - It's built with WPF + WPF-UI, so it lives quietly in your system tray with a summary that pops up the moment you open your case.
-- It's a little alternative to Apple's own software for Windows PCs, giving you live left/right/case battery, automatic pause/resume when you remove or reinsert an earbud, automatic switching to your PC, one-AirPod playback, a driverless three-band equaliser with a live spectrum visualiser, and a Bluetooth telephony (microphone) toggle. No drivers or kernel hacks required.
+- It's a little alternative to Apple's own software ecosystem that is intended for Windows PCs, giving you live left/right/case battery, automatic pause/resume when you remove or reinsert an earbud, automatic switching to your PC, one-AirPod playback, a driverless three-band equaliser with a live spectrum visualiser, and a Bluetooth telephony (microphone) toggle with no drivers or kernel hacks required.
 - Works with AirPods (1st–4th generation, Pro, Pro 2, Pro 3, Max, and Max 2).
 - Works best on Windows 11 with a Bluetooth LE adapter.
 
