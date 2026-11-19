@@ -21,6 +21,7 @@ public sealed class DriverlessEqualiserService : IDisposable
     private ThreeBandEqSampleProvider? _equaliser;
     private MMDevice? _sourceDevice;
     private MMDevice? _targetDevice;
+    private volatile string? _targetEndpointId;
     private bool _sourceWasMuted;
     private bool _targetWasMuted;
     private string? _originalConsoleEndpointId;
@@ -31,6 +32,9 @@ public sealed class DriverlessEqualiserService : IDisposable
     public DriverlessEqualiserService() => RecoverInterruptedRoute();
 
     public bool IsRunning { get; private set; }
+
+    /// <summary>The AirPods endpoint the EQ renders to while running; Windows' default output is a different device then.</summary>
+    public string? TargetEndpointId => _targetEndpointId;
 
     public string RouteDescription { get; private set; } = string.Empty;
 
@@ -138,6 +142,7 @@ public sealed class DriverlessEqualiserService : IDisposable
 
                 OutputFormatDescription = FormatDescription(targetFormat);
                 RouteDescription = $"{ShortName(_sourceDevice.FriendlyName)} → {ShortName(_targetDevice.FriendlyName)} · {OutputFormatDescription}";
+                _targetEndpointId = _targetDevice.ID;
                 IsRunning = true;
                 return $"Driverless EQ active: {RouteDescription}. The curve is applied live.";
             }
@@ -183,6 +188,7 @@ public sealed class DriverlessEqualiserService : IDisposable
     private void StopCore()
     {
         IsRunning = false;
+        _targetEndpointId = null;
         if (_capture is not null)
         {
             _capture.DataAvailable -= OnCaptureDataAvailable;

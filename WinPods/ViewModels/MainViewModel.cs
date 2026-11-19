@@ -10,7 +10,8 @@ public enum TraySummaryMode
 {
     Connected,
     Pairing,
-    NoDevices
+    NoDevices,
+    ConnectOffer
 }
 
 public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
@@ -29,6 +30,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly AirPodsWearPlaybackController _wearPlaybackController;
     private readonly AirPodsAutoSwitchController _autoSwitchController;
     private readonly AirPodsAudioConnectionState _audioConnectionState = new();
+    private readonly AudioEndpointChangeWatcher _audioEndpointWatcher = new();
     private readonly CaseOpenSummaryGate _caseOpenSummaryGate = new();
     private readonly ThreeBandEqualiserProfile _legacyEqualiserProfile;
     private readonly Dictionary<int, AirPodsAdvertisement> _recentAdvertisements = [];
@@ -41,8 +43,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private AirPodsDevice? _summaryDevice;
     private TraySummaryMode _summaryMode = TraySummaryMode.Connected;
     private AirPodsPairingCandidate? _pairingDevice;
+    private AirPodsDevice? _connectOfferDevice;
+    private string? _connectionMessage;
     private bool _isPairingNearbyDevice;
     private bool _isBusy;
+    private bool _isConnecting;
+    private int _audioRouteRefreshQueued;
+    private bool _disposed;
     private double _lowGain;
     private double _midGain;
     private double _highGain;
@@ -62,17 +69,22 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         _mediaTransport = new WindowsSystemMediaTransport();
         _wearPlaybackController = new AirPodsWearPlaybackController(_mediaTransport);
-        _autoSwitchController = new AirPodsAutoSwitchController(_mediaTransport, _pairing);
+        _autoSwitchController = new AirPodsAutoSwitchController(_mediaTransport);
         _scanner.AdvertisementReceived += OnAdvertisementReceived;
         _pairingWatcher.PairingDeviceFound += OnPairingDeviceFound;
         _pairingWatcher.PairingDeviceLost += OnPairingDeviceLost;
         _startWithWindows = _startupService.IsEnabled();
         _spectrumService.SpectrumAvailable += OnSpectrumAvailable;
+        _audioEndpointWatcher.Changed += OnAudioEndpointsChanged;
         _caseStateTimer = new System.Threading.Timer(
             _ => UpdateOnUi(() =>
             {
                 var now = DateTimeOffset.UtcNow;
-                foreach (var device in Devices) device.ExpireCaseOpenState(now);
+                foreach (var device in Devices)
+                {
+                    device.ExpireCaseOpenState(now);
+                    device.ExpireWearState(now);
+                }
             }), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         var profile = _legacyEqualiserProfile = _equaliserStore.Load();
         _lowGain = profile.Low;
@@ -121,11 +133,37 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (!SetField(ref _summaryMode, value)) return;
             OnPropertyChanged(nameof(ShowPairingSummary));
             OnPropertyChanged(nameof(ShowNoDevicesSummary));
+            OnPropertyChanged(nameof(ShowConnectOfferSummary));
         }
     }
 
     public bool ShowPairingSummary => _summaryMode == TraySummaryMode.Pairing;
     public bool ShowNoDevicesSummary => _summaryMode == TraySummaryMode.NoDevices;
+    public bool ShowConnectOfferSummary => _summaryMode == TraySummaryMode.ConnectOffer && _connectOfferDevice is not null;
+
+    /// <summary>AirPods WinPods is asking about connecting (it never connects without a click).</summary>
+    public AirPodsDevice? ConnectOfferDevice
+    {
+        get => _connectOfferDevice;
+        private set
+        {
+            if (!SetField(ref _connectOfferDevice, value)) return;
+            OnPropertyChanged(nameof(ShowConnectOfferSummary));
+        }
+    }
+
+    /// <summary>Why the last connect attempt failed, shown under the Connection heading.</summary>
+    public string? ConnectionMessage
+    {
+        get => _connectionMessage;
+        private set
+        {
+            if (!SetField(ref _connectionMessage, value)) return;
+            OnPropertyChanged(nameof(HasConnectionMessage));
+        }
+    }
+
+    public bool HasConnectionMessage => !string.IsNullOrEmpty(_connectionMessage);
 
     public AirPodsPairingCandidate? PairingDevice
     {
@@ -157,7 +195,27 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public bool HasDevice => SelectedDevice is not null;
     public bool HasNoDevices => Devices.Count == 0 && !IsBusy;
-    public bool CanPairOrSwitch => HasDevice && !IsBusy;
+    public bool CanPairOrSwitch => HasDevice && !IsBusy && SelectedDevice?.IsAudioActive != true;
+    public bool IsSelectedDeviceAudioActive => SelectedDevice?.IsAudioActive == true;
+
+    public string PairSwitchLabel => _isConnecting
+        ? "Connecting..."
+        : SelectedDevice?.ConnectionStatus switch
+        {
+            AirPodsConnectionStatus.Active => "In use",
+            AirPodsConnectionStatus.Ready => "Use for audio",
+            AirPodsConnectionStatus.AudioUnavailable => "Reconnect",
+            _ => "Connect"
+        };
+
+    public string PairSwitchToolTip => SelectedDevice?.ConnectionStatus switch
+    {
+        AirPodsConnectionStatus.Active => "Windows audio is already playing through these AirPods.",
+        AirPodsConnectionStatus.Ready => "Connected, but Windows is playing through another output. Click to switch Windows audio to the AirPods.",
+        AirPodsConnectionStatus.AudioUnavailable => "Bluetooth is connected but the AirPods audio isn't ready. Click to ask Windows to reconnect it.",
+        AirPodsConnectionStatus.NotConnected => "Not connected to this PC. Click to connect and switch Windows audio to the AirPods.",
+        _ => "No AirPods selected."
+    };
     public string TraySummary => SelectedDevice is null
         ? "No paired AirPods"
         : $"{SelectedDevice.Name} - {SelectedDevice.DetailBatteryLabel}";
@@ -273,6 +331,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             _scanner.Start();
             _pairingWatcher.Start();
+            _audioEndpointWatcher.Start();
         }
         catch
         {
@@ -311,6 +370,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             foreach (var connectedDevice in Devices.Where(device =>
                          device.IsConnected && !ReferenceEquals(device, SelectedDevice)))
                 _ = EnforceBluetoothTelephonyAsync(connectedDevice);
+            RefreshAudioRoutes(force: true);
         }
         catch
         {
@@ -326,10 +386,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         if (SelectedDevice is null || IsBusy) return;
         IsBusy = true;
+        _isConnecting = true;
+        ConnectionMessage = null;
         NotifyBusyStateChanged();
-        await _pairing.PairOrSwitchAsync(SelectedDevice);
-        IsBusy = false;
-        NotifyBusyStateChanged();
+        try
+        {
+            var result = await _pairing.TryConnectAsync(SelectedDevice);
+            ConnectionMessage = result.Success ? null : result.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+            _isConnecting = false;
+            RefreshAudioRoutes(force: true);
+            NotifyBusyStateChanged();
+        }
     }
 
     public async Task PairNearbyAsync()
@@ -344,6 +415,23 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         PairingDevice = null;
         await RefreshAsync();
+    }
+
+    public async Task AcceptConnectOfferAsync()
+    {
+        if (ConnectOfferDevice is not { } device) return;
+        ConnectOfferDevice = null;
+        SummaryDevice = device;
+        SummaryMode = TraySummaryMode.Connected;
+        if (!ReferenceEquals(SelectedDevice, device)) SelectedDevice = device;
+        await PairOrSwitchAsync();
+    }
+
+    public void DeclineConnectOffer()
+    {
+        if (ConnectOfferDevice is { } device) _autoSwitchController.Decline(device);
+        ConnectOfferDevice = null;
+        if (SummaryMode == TraySummaryMode.ConnectOffer) SummaryMode = TraySummaryMode.Connected;
     }
 
     public void DismissNearbyPairing()
@@ -404,6 +492,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
+        _audioEndpointWatcher.Changed -= OnAudioEndpointsChanged;
+        _audioEndpointWatcher.Dispose();
         _scanner.AdvertisementReceived -= OnAdvertisementReceived;
         _scanner.Dispose();
         _pairingWatcher.PairingDeviceFound -= OnPairingDeviceFound;
@@ -422,6 +513,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public event EventHandler? NearbyCaseOpened;
     public event EventHandler? NearbyPairingDetected;
     public event EventHandler? DeviceConnected;
+    public event EventHandler? ConnectOfferRequested;
 
     private void SetEqualiserGain(ref double field, double value, [CallerMemberName] string? propertyName = null)
     {
@@ -491,6 +583,29 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void OnSpectrumAvailable(object? sender, IReadOnlyList<double> levels) =>
         UpdateOnUi(() => Spectrum = levels);
 
+    private void OnAudioEndpointsChanged(object? sender, EventArgs args)
+    {
+        // Endpoint events arrive in bursts on a COM thread (one per role when the default output
+        // changes), so collapse each burst into a single refresh on the UI thread.
+        if (Interlocked.Exchange(ref _audioRouteRefreshQueued, 1) == 1) return;
+        _ = Task.Delay(TimeSpan.FromMilliseconds(300)).ContinueWith(_ => UpdateOnUi(() =>
+        {
+            Interlocked.Exchange(ref _audioRouteRefreshQueued, 0);
+            if (!_disposed) RefreshAudioRoutes(force: true);
+        }), TaskScheduler.Default);
+    }
+
+    private void RefreshAudioRoutes(bool force = false)
+    {
+        if (force) _audioConnectionState.Invalidate();
+        var equaliserTarget = _driverlessEqualiser.TargetEndpointId;
+        foreach (var device in Devices)
+        {
+            var route = _audioConnectionState.GetRoute(device, equaliserTarget);
+            device.ApplyAudioRoute(route.HasActiveEndpoint, route.IsInUse);
+        }
+    }
+
     private async Task MonitorConnectionsAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -541,6 +656,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                         SelectedDevice = connected;
                     foreach (var connectedDevice in Devices.Where(device => device.IsConnected))
                         _ = EnforceBluetoothTelephonyAsync(connectedDevice);
+                    RefreshAudioRoutes();
                 });
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -556,6 +672,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void OnSelectedDeviceChanged(object? sender, PropertyChangedEventArgs args)
     {
         NotifySelectionChanged();
+        if (args.PropertyName == nameof(AirPodsDevice.ConnectionStatus) &&
+            SelectedDevice?.ConnectionStatus is AirPodsConnectionStatus.Ready or AirPodsConnectionStatus.Active)
+            ConnectionMessage = null;
         if (args.PropertyName != nameof(AirPodsDevice.IsConnected)) return;
         if (SelectedDevice?.IsConnected != true && _driverlessEqualiser.IsRunning)
             _driverlessEqualiser.Stop();
@@ -671,6 +790,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(HasDevice));
         OnPropertyChanged(nameof(HasNoDevices));
         OnPropertyChanged(nameof(CanPairOrSwitch));
+        OnPropertyChanged(nameof(IsSelectedDeviceAudioActive));
+        OnPropertyChanged(nameof(PairSwitchLabel));
+        OnPropertyChanged(nameof(PairSwitchToolTip));
         OnPropertyChanged(nameof(TraySummary));
         OnPropertyChanged(nameof(CanUseOneAirPodPlayback));
         OnPropertyChanged(nameof(CanToggleBluetoothTelephony));
@@ -680,6 +802,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         OnPropertyChanged(nameof(IsBusy));
         OnPropertyChanged(nameof(CanPairOrSwitch));
+        OnPropertyChanged(nameof(PairSwitchLabel));
         OnPropertyChanged(nameof(HasNoDevices));
         OnPropertyChanged(nameof(CanToggleEqualiser));
     }
@@ -794,7 +917,17 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         AirPodsAdvertisement advertisement,
         AirPodsDeviceSettings settings)
     {
-        await _autoSwitchController.ObserveAsync(device, advertisement, settings);
+        if (!await _autoSwitchController.ShouldOfferSwitchAsync(device, advertisement, settings)) return;
+        UpdateOnUi(() =>
+        {
+            // Ask instead of connecting: taking the AirPods without a click would race the
+            // iPhone/Mac that is using them.
+            if (_disposed || IsBusy || device.ConnectionStatus != AirPodsConnectionStatus.NotConnected) return;
+            ConnectOfferDevice = device;
+            SummaryDevice = device;
+            SummaryMode = TraySummaryMode.ConnectOffer;
+            ConnectOfferRequested?.Invoke(this, EventArgs.Empty);
+        });
     }
 
     private void RefreshEqualiserAvailability()
@@ -806,6 +939,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void NotifyEqualiserStateChanged()
     {
+        // The EQ routes audio to the AirPods without making them the default output, so the
+        // "in use" state has to follow it directly rather than wait for an endpoint event.
+        RefreshAudioRoutes();
         OnPropertyChanged(nameof(IsEqualiserActive));
         OnPropertyChanged(nameof(CanToggleEqualiser));
         OnPropertyChanged(nameof(EqualiserActionLabel));

@@ -9,6 +9,7 @@ namespace WinPods.Services;
 public static class WindowsBluetoothAudioConnector
 {
     private static readonly Guid BluetoothAudioPropertySet = new("7fa06c40-b8f6-4c7e-8556-e8c33a12e54d");
+    private static readonly Guid AudioDeviceEnumeratorClassId = new("BCDE0395-E52F-467C-8E3D-C4579291692E");
 
     public static AirPodsConnectionAttempt RequestConnect(AirPodsDevice device)
     {
@@ -45,41 +46,62 @@ public static class WindowsBluetoothAudioConnector
 
     private static IEnumerable<IKsControl> FindBluetoothAudioEndpoints(Guid containerId)
     {
-        var enumerator = new IMMDeviceEnumerator();
-        var collection = enumerator.EnumAudioEndpoints(EDataFlow.eAll, DEVICE_STATE.DEVICE_STATEMASK_ALL);
-        if (collection is null) yield break;
-        for (uint index = 0; index < collection.GetCount(); index++)
+        // Hold an NAudio enumerator while working so the shared wrapper is NAudio's type
+        // (see CreateSharedEnumerator).
+        using var naudioEnumerator = new NAudio.CoreAudioApi.MMDeviceEnumerator();
+        var enumerator = CreateSharedEnumerator();
+        try
         {
-            collection.Item(index, out var audioEndpoint);
-            if (audioEndpoint is null) continue;
-            if (ReadContainerId(audioEndpoint) != containerId) continue;
-
-            foreach (var connector in EnumerateConnectors(audioEndpoint))
+            var collection = enumerator.EnumAudioEndpoints(EDataFlow.eAll, DEVICE_STATE.DEVICE_STATEMASK_ALL);
+            if (collection is null) yield break;
+            for (uint index = 0; index < collection.GetCount(); index++)
             {
-                IPart? connectedPart;
-                try
-                {
-                    connectedPart = connector.GetConnectedTo() as IPart;
-                }
-                catch
-                {
-                    continue;
-                }
-                if (connectedPart is null) continue;
+                collection.Item(index, out var audioEndpoint);
+                if (audioEndpoint is null) continue;
+                if (ReadContainerId(audioEndpoint) != containerId) continue;
 
-                var topologyObject = connectedPart.GetTopologyObject();
-                var rawDeviceId = topologyObject?.GetDeviceId();
-                if (rawDeviceId is null) continue;
-                var deviceId = rawDeviceId.ToString();
-                if (string.IsNullOrWhiteSpace(deviceId)) continue;
-                if (!deviceId.StartsWith(@"{2}.\\?\bth", StringComparison.OrdinalIgnoreCase)) continue;
+                foreach (var connector in EnumerateConnectors(audioEndpoint))
+                {
+                    IPart? connectedPart;
+                    try
+                    {
+                        connectedPart = connector.GetConnectedTo() as IPart;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                    if (connectedPart is null) continue;
 
-                var bluetoothEndpoint = enumerator.GetDevice(deviceId);
-                if (bluetoothEndpoint is null) continue;
-                bluetoothEndpoint.Activate(typeof(IKsControl).GUID, Ole32.CLSCTX.CLSCTX_ALL, null, out var control);
-                if (control is IKsControl ksControl) yield return ksControl;
+                    var topologyObject = connectedPart.GetTopologyObject();
+                    var rawDeviceId = topologyObject?.GetDeviceId();
+                    if (rawDeviceId is null) continue;
+                    var deviceId = rawDeviceId.ToString();
+                    if (string.IsNullOrWhiteSpace(deviceId)) continue;
+                    if (!deviceId.StartsWith(@"{2}.\\?\bth", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    var bluetoothEndpoint = enumerator.GetDevice(deviceId);
+                    if (bluetoothEndpoint is null) continue;
+                    bluetoothEndpoint.Activate(typeof(IKsControl).GUID, Ole32.CLSCTX.CLSCTX_ALL, null, out var control);
+                    if (control is IKsControl ksControl) yield return ksControl;
+                }
             }
         }
+        finally
+        {
+            Marshal.ReleaseComObject(enumerator);
+        }
+    }
+
+    // Windows hands each process a single shared audio device enumerator, and .NET keeps a single
+    // wrapper object per COM object. NAudio (used everywhere else in WinPods) and Vanara each declare
+    // their own wrapper class for it, so constructing Vanara's class throws InvalidCastException while
+    // an NAudio wrapper is alive, and a leftover Vanara wrapper breaks every later NAudio call the same
+    // way. Creating it by class ID and casting to the interface works with whichever wrapper exists.
+    private static IMMDeviceEnumerator CreateSharedEnumerator()
+    {
+        var enumeratorType = Type.GetTypeFromCLSID(AudioDeviceEnumeratorClassId, throwOnError: true)!;
+        return (IMMDeviceEnumerator)Activator.CreateInstance(enumeratorType)!;
     }
 
     private static IEnumerable<IConnector> EnumerateConnectors(IMMDevice endpoint)

@@ -13,6 +13,8 @@ public sealed record AirPodsAdvertisement(
     bool IsCaseOpen,
     bool? IsBeingWorn,
     int? InEarCount,
+    BudLocation LeftBud,
+    BudLocation RightBud,
     byte DeviceColour,
     byte Status,
     DateTimeOffset LastSeen);

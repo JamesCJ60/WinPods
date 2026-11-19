@@ -38,6 +38,10 @@ public static class AirPodsProductCatalogue
     public static bool IsOverEar(int productId) =>
         productId is 0x0A20 or 0x1F20 or 0x2D20 or 0x0620 or 0x0920 or 0x0D20;
 
+    /// <summary>False for over-ear headphones and neckband/wired-bud Beats, which have no charging case.</summary>
+    public static bool HasChargingCase(int productId) =>
+        !IsOverEar(productId) && productId is not (0x0320 or 0x0520 or 0x0C20 or 0x1020);
+
     public static bool HasColourVariants(int productId) =>
         productId is 0x0A20 or 0x1F20 or 0x2D20 or 0x0520 or 0x0620 or 0x0920
             or 0x0B20 or 0x0D20 or 0x1020 or 0x1120 or 0x1220 or 0x1720;

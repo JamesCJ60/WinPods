@@ -1,18 +1,16 @@
 using NAudio.CoreAudioApi;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Enumeration;
-using Windows.System;
 using WinPods.Models;
 
 namespace WinPods.Services;
 
-public interface IAirPodsConnectionService
+public sealed class AirPodsPairingService
 {
-    Task<AirPodsConnectionAttempt> RequestConnectAsync(AirPodsDevice device);
-}
+    // AirPods coming over from a phone or out of a sleeping case can take several seconds.
+    private const int ConnectPollAttempts = 24;
+    private static readonly TimeSpan ConnectPollInterval = TimeSpan.FromMilliseconds(500);
 
-public sealed class AirPodsPairingService : IAirPodsConnectionService
-{
     public async Task<AirPodsConnectionAttempt> PairNearbyAsync(AirPodsPairingCandidate candidate)
     {
         try
@@ -33,24 +31,6 @@ public sealed class AirPodsPairingService : IAirPodsConnectionService
         }
     }
 
-    public async Task<string> PairOrSwitchAsync(AirPodsDevice device)
-    {
-        var attempt = await TryConnectAsync(device);
-        if (attempt.Success) return attempt.Message;
-
-        try
-        {
-            var opened = await Launcher.LaunchUriAsync(new Uri("ms-settings:bluetooth"));
-            return opened
-                ? $"{attempt.Message} Bluetooth settings opened so you can connect them manually."
-                : attempt.Message;
-        }
-        catch
-        {
-            return attempt.Message;
-        }
-    }
-
     public async Task<AirPodsConnectionAttempt> TryConnectAsync(AirPodsDevice device)
     {
         try
@@ -61,20 +41,21 @@ public sealed class AirPodsPairingService : IAirPodsConnectionService
             var request = await RequestConnectAsync(device);
             if (!request.Success) return request;
 
-            for (var attempt = 0; attempt < 10; attempt++)
+            for (var attempt = 0; attempt < ConnectPollAttempts; attempt++)
             {
                 using var bluetoothDevice = await BluetoothDevice.FromIdAsync(device.Id);
                 if (bluetoothDevice?.ConnectionStatus == BluetoothConnectionStatus.Connected &&
                     TrySelectAudioEndpoint(device))
                     return new(true, $"Switched Windows audio to {device.Name}.");
 
-                await Task.Delay(500);
+                await Task.Delay(ConnectPollInterval);
             }
 
             if (TrySelectAudioEndpoint(device))
                 return new(true, $"Switched Windows audio to {device.Name}.");
 
-            return new(false, "Windows accepted the connection request but the AirPods audio endpoint did not become available.");
+            return new(false,
+                $"{device.Name} didn't connect. They may be busy on another device or asleep in a closed case; open the case and try again.");
         }
         catch (Exception exception)
         {
@@ -86,7 +67,9 @@ public sealed class AirPodsPairingService : IAirPodsConnectionService
     {
         try
         {
-            if (device.IsConnected)
+            // A Bluetooth link on its own doesn't mean Windows can play audio to the AirPods,
+            // so only skip the audio reconnect request once their audio endpoint is up.
+            if (device.ConnectionStatus is AirPodsConnectionStatus.Ready or AirPodsConnectionStatus.Active)
                 return new(true, $"{device.Name} is already connected.");
 
             var info = await DeviceInformation.CreateFromIdAsync(device.Id);

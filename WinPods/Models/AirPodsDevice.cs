@@ -5,6 +5,10 @@ namespace WinPods.Models;
 
 public sealed class AirPodsDevice : INotifyPropertyChanged
 {
+    // Buds stop advertising once the case lid is closed, so "in case" is kept until a newer
+    // advertisement says otherwise; in-ear/out-of-ear readings are dropped once they go stale.
+    private static readonly TimeSpan WearStateLifetime = TimeSpan.FromSeconds(30);
+
     private string _name = "AirPods";
     private string _model = "AirPods";
     private bool _isConnected;
@@ -19,6 +23,12 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
     private DateTimeOffset? _lastCaseOpenSeen;
     private DateTimeOffset? _caseBatteryLastSeen;
     private byte? _deviceColourCode;
+    private BudLocation _leftBud;
+    private BudLocation _rightBud;
+    private bool? _isHeadsetWorn;
+    private DateTimeOffset? _wearStateLastSeen;
+    private bool _hasAudioEndpoint;
+    private bool _isAudioInUse;
 
     public required string Id { get; init; }
 
@@ -58,21 +68,88 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
                 OnPropertyChanged(nameof(IsOverEar));
                 OnPropertyChanged(nameof(IsInEar));
                 OnPropertyChanged(nameof(DetailBatteryLabel));
+                NotifyLiveStateChanged();
             }
         }
     }
 
+    /// <summary>True while Windows reports a Bluetooth link to the AirPods (says nothing about audio).</summary>
     public bool IsConnected
     {
         get => _isConnected;
         set
         {
-            if (SetField(ref _isConnected, value))
-            {
-                OnPropertyChanged(nameof(ConnectionLabel));
-            }
+            var previousStatus = ConnectionStatus;
+            if (SetField(ref _isConnected, value) && previousStatus != ConnectionStatus)
+                NotifyConnectionStatusChanged();
         }
     }
+
+    public AirPodsConnectionStatus ConnectionStatus =>
+        _isAudioInUse ? AirPodsConnectionStatus.Active
+        : _hasAudioEndpoint ? AirPodsConnectionStatus.Ready
+        : IsConnected ? AirPodsConnectionStatus.AudioUnavailable
+        : AirPodsConnectionStatus.NotConnected;
+
+    public bool IsAudioActive => ConnectionStatus == AirPodsConnectionStatus.Active;
+
+    public BudLocation LeftBud
+    {
+        get => _leftBud;
+        private set
+        {
+            if (!SetField(ref _leftBud, value)) return;
+            OnPropertyChanged(nameof(LeftBudLabel));
+            NotifyLiveStateChanged();
+        }
+    }
+
+    public BudLocation RightBud
+    {
+        get => _rightBud;
+        private set
+        {
+            if (!SetField(ref _rightBud, value)) return;
+            OnPropertyChanged(nameof(RightBudLabel));
+            NotifyLiveStateChanged();
+        }
+    }
+
+    public string LeftBudLabel => FormatBudLocation(LeftBud);
+
+    public string RightBudLabel => FormatBudLocation(RightBud);
+
+    /// <summary>Over-ear only: whether the headphones are on someone's head (null when unknown).</summary>
+    public bool? IsHeadsetWorn
+    {
+        get => _isHeadsetWorn;
+        private set
+        {
+            if (!SetField(ref _isHeadsetWorn, value)) return;
+            OnPropertyChanged(nameof(HeadsetWearLabel));
+            OnPropertyChanged(nameof(HasHeadsetWearState));
+        }
+    }
+
+    public string HeadsetWearLabel => IsHeadsetWorn switch
+    {
+        true => "Worn",
+        false => "Not worn",
+        null => string.Empty
+    };
+
+    public bool HasHeadsetWearState => IsOverEar && IsHeadsetWorn.HasValue;
+
+    public bool HasChargingCase => !IsOverEar && (ProductId == 0 || AirPodsProductCatalogue.HasChargingCase(ProductId));
+
+    /// <summary>Show the per-bud grid once there is anything to put in it.</summary>
+    public bool ShowsEarbudGrid =>
+        IsInEar &&
+        (LeftBattery.HasValue || RightBattery.HasValue || CaseBattery.HasValue ||
+         LeftBud != BudLocation.Unknown || RightBud != BudLocation.Unknown);
+
+    /// <summary>Single-line fallback: headset battery, or the "open the case" hint.</summary>
+    public bool ShowsBatterySummary => !ShowsEarbudGrid;
 
     public int? LeftBattery
     {
@@ -108,6 +185,7 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
                 OnPropertyChanged(nameof(CaseBatteryLabel));
                 OnPropertyChanged(nameof(CaseBatteryValue));
                 OnPropertyChanged(nameof(DetailBatteryLabel));
+                NotifyLiveStateChanged();
             }
         }
     }
@@ -118,10 +196,7 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
         private set
         {
             if (SetField(ref _isCaseOpen, value))
-            {
-                OnPropertyChanged(nameof(ConnectionLabel));
                 OnPropertyChanged(nameof(NearbyStatusLabel));
-            }
         }
     }
 
@@ -178,17 +253,45 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
         }
     }
 
-    public string ConnectionLabel => IsConnected ? "Connected" : "Paired";
+    public string ConnectionLabel => ConnectionStatus switch
+    {
+        AirPodsConnectionStatus.Active => "Active on this PC",
+        AirPodsConnectionStatus.Ready => "Connected  ·  not in use",
+        AirPodsConnectionStatus.AudioUnavailable => "Connected  ·  audio not ready",
+        _ => "Not connected"
+    };
 
     public string NearbyStatusLabel => IsCaseOpen ? $"Case open  ·  {ConnectionLabel}" : ConnectionLabel;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// Records what Windows audio is doing with these AirPods: whether their audio endpoint is
+    /// active, and whether it is the one Windows is currently playing through.
+    /// </summary>
+    public void ApplyAudioRoute(bool hasActiveEndpoint, bool isInUse)
+    {
+        var previousStatus = ConnectionStatus;
+        _hasAudioEndpoint = hasActiveEndpoint;
+        _isAudioInUse = hasActiveEndpoint && isInUse;
+        if (previousStatus != ConnectionStatus) NotifyConnectionStatusChanged();
+    }
 
     public void ApplyAdvertisement(AirPodsAdvertisement advertisement)
     {
         Model = advertisement.Model;
         LastSeen = advertisement.LastSeen;
         if (HasColourVariants) DeviceColourCode = advertisement.DeviceColour;
+        if (IsOverEar)
+        {
+            if (advertisement.InEarCount is int worn) IsHeadsetWorn = worn > 0;
+        }
+        else
+        {
+            LeftBud = advertisement.LeftBud;
+            RightBud = advertisement.RightBud;
+        }
+        _wearStateLastSeen = advertisement.LastSeen;
         if (advertisement.IsCaseOpen)
         {
             _lastCaseOpenSeen = advertisement.LastSeen;
@@ -222,6 +325,11 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
         _isRightCharging = other._isRightCharging;
         _isCaseCharging = other._isCaseCharging;
         _caseBatteryLastSeen = other._caseBatteryLastSeen;
+        _wearStateLastSeen = other._wearStateLastSeen;
+        LeftBud = other.LeftBud;
+        RightBud = other.RightBud;
+        IsHeadsetWorn = other.IsHeadsetWorn;
+        ApplyAudioRoute(other._hasAudioEndpoint, other._isAudioInUse);
         if (other.LastSeen.HasValue) LastSeen = other.LastSeen;
         if (other.LeftBattery.HasValue) LeftBattery = other.LeftBattery;
         if (other.RightBattery.HasValue) RightBattery = other.RightBattery;
@@ -256,6 +364,38 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
             IsCaseOpen = false;
     }
 
+    public void ExpireWearState(DateTimeOffset now)
+    {
+        if (_wearStateLastSeen is not { } lastSeen || now - lastSeen <= WearStateLifetime) return;
+        if (LeftBud != BudLocation.InCase) LeftBud = BudLocation.Unknown;
+        if (RightBud != BudLocation.InCase) RightBud = BudLocation.Unknown;
+        IsHeadsetWorn = null;
+    }
+
+    private static string FormatBudLocation(BudLocation location) => location switch
+    {
+        BudLocation.InEar => "In ear",
+        BudLocation.OutOfEar => "Out of ear",
+        BudLocation.InCase => "In case",
+        _ => "—"
+    };
+
+    private void NotifyConnectionStatusChanged()
+    {
+        OnPropertyChanged(nameof(ConnectionStatus));
+        OnPropertyChanged(nameof(IsAudioActive));
+        OnPropertyChanged(nameof(ConnectionLabel));
+        OnPropertyChanged(nameof(NearbyStatusLabel));
+    }
+
+    private void NotifyLiveStateChanged()
+    {
+        OnPropertyChanged(nameof(ShowsEarbudGrid));
+        OnPropertyChanged(nameof(ShowsBatterySummary));
+        OnPropertyChanged(nameof(HasChargingCase));
+        OnPropertyChanged(nameof(HasHeadsetWearState));
+    }
+
     private void NotifyBatteryChanged()
     {
         OnPropertyChanged(nameof(DisplayBattery));
@@ -265,6 +405,7 @@ public sealed class AirPodsDevice : INotifyPropertyChanged
         OnPropertyChanged(nameof(RightBatteryLabel));
         OnPropertyChanged(nameof(LeftBatteryValue));
         OnPropertyChanged(nameof(RightBatteryValue));
+        NotifyLiveStateChanged();
     }
 
     private static string FormatBattery(int? level, bool charging) =>
