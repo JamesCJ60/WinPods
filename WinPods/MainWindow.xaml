@@ -62,7 +62,7 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="22,20,22,24">
                 <ui:Card Padding="18" Background="#27272B">
-                    <Grid Height="112">
+                    <Grid MinHeight="112">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="132" />
                             <ColumnDefinition Width="*" />
@@ -88,14 +88,7 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                             <TextBlock Text="{Binding SelectedDevice.Model}" Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource SecondaryTextBrush}" />
-                            <TextBlock Text="{Binding SelectedDevice.DetailBatteryLabel}" Margin="0,8,0,0" FontSize="13" TextWrapping="Wrap" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Ellipse Width="6" Height="6" Fill="{StaticResource WinPodsGreenBrush}"
-                                         VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding SelectedDevice.NearbyStatusLabel}"
-                                           Margin="7,0,0,0" FontSize="12" VerticalAlignment="Center"
-                                           Foreground="{StaticResource WinPodsGreenBrush}" />
-                            </StackPanel>
+                            <controls:DeviceStatusPanel Margin="0,8,0,0" DataContext="{Binding SelectedDevice}" />
                         </StackPanel>
                     </Grid>
                 </ui:Card>
@@ -109,9 +102,28 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                         <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon ArrowSync20}"
                                    Padding="9" Margin="0,0,8,0" ToolTip="Refresh" Click="Refresh_Click" />
-                        <ui:Button Content="Pair / switch" Appearance="Secondary" Padding="13,7" IsEnabled="{Binding CanPairOrSwitch}" Click="PairSwitch_Click" />
+                        <ui:Button Appearance="Secondary" Padding="13,7" IsEnabled="{Binding CanPairOrSwitch}" Click="PairSwitch_Click"
+                                   ToolTip="{Binding PairSwitchToolTip}" ToolTipService.ShowOnDisabled="True">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe Fluent Icons" FontSize="13" Margin="0,0,7,0"
+                                           VerticalAlignment="Center" Foreground="{StaticResource WinPodsGreenBrush}"
+                                           Visibility="{Binding IsSelectedDeviceAudioActive, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <TextBlock Text="{Binding PairSwitchLabel}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ui:Button>
                     </StackPanel>
                 </Grid>
+
+                <!-- Why the last connect attempt failed. Bluetooth settings only open if the link is clicked. -->
+                <Border Margin="0,8,0,0" Padding="12,8" Background="#26E9B949" BorderBrush="#66E9B949" BorderThickness="1" CornerRadius="8"
+                        Visibility="{Binding HasConnectionMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding ConnectionMessage}" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock Margin="0,4,0,0" FontSize="12">
+                            <Hyperlink Click="OpenPairing_Click" Foreground="#48B9F2">Open Bluetooth settings</Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
 
                 <Border Margin="0,8,0,0" Padding="14,4" Background="#252529" BorderBrush="#3F3F44" BorderThickness="1" CornerRadius="12">
                     <Grid>
@@ -125,8 +137,8 @@
                             <RowDefinition Height="54" />
                         </Grid.RowDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Automatically switch to this PC" FontSize="13" FontWeight="SemiBold" />
-                            <TextBlock Text="Connect when worn while PC media is playing." Margin="0,3,12,0" FontSize="11"
+                            <TextBlock Text="Offer to switch to this PC" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Ask to connect when worn while PC media is playing." Margin="0,3,12,0" FontSize="11"
                                        Foreground="{StaticResource SecondaryTextBrush}" />
                         </StackPanel>
                         <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center"

@@ -54,6 +54,19 @@ public partial class TraySummaryWindow : Window
         HideSummary();
     }
 
+    private async void AcceptConnectOffer_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (DataContext is MainViewModel viewModel) await viewModel.AcceptConnectOfferAsync();
+    }
+
+    private void DeclineConnectOffer_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (DataContext is MainViewModel viewModel) viewModel.DeclineConnectOffer();
+        HideSummary();
+    }
+
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (_allowClose) return;

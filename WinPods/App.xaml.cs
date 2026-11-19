@@ -24,6 +24,7 @@ public partial class App : System.Windows.Application
         _mainWindow.ViewModel.NearbyCaseOpened += OnNearbyCaseOpened;
         _mainWindow.ViewModel.NearbyPairingDetected += OnNearbyPairingDetected;
         _mainWindow.ViewModel.DeviceConnected += OnDeviceConnected;
+        _mainWindow.ViewModel.ConnectOfferRequested += OnConnectOfferRequested;
 
         _trayIcon = new WinPodsTrayIconService();
         _trayIcon.LeftClicked += OnTrayLeftClicked;
@@ -90,6 +91,7 @@ public partial class App : System.Windows.Application
             _mainWindow.ViewModel.NearbyCaseOpened -= OnNearbyCaseOpened;
             _mainWindow.ViewModel.NearbyPairingDetected -= OnNearbyPairingDetected;
             _mainWindow.ViewModel.DeviceConnected -= OnDeviceConnected;
+            _mainWindow.ViewModel.ConnectOfferRequested -= OnConnectOfferRequested;
             _mainWindow.ClosePermanently();
         }
         base.OnExit(e);
@@ -144,6 +146,18 @@ public partial class App : System.Windows.Application
     {
         if (UserNotificationState.ShouldSuppressAutomaticPopup()) return;
         ExtendSummaryVisibility(TimeSpan.FromSeconds(8));
+        ShowSummary();
+    }
+
+    private void OnConnectOfferRequested(object? sender, EventArgs e)
+    {
+        // In a full-screen app or presentation, stay quiet rather than ask (and never connect).
+        if (UserNotificationState.ShouldSuppressAutomaticPopup())
+        {
+            _mainWindow?.ViewModel.DeclineConnectOffer();
+            return;
+        }
+        ExtendSummaryVisibility(TimeSpan.FromSeconds(20));
         ShowSummary();
     }
 
